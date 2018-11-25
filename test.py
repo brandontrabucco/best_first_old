@@ -43,7 +43,7 @@ if __name__ == "__main__":
             current_caption = [vocab.start_id, vocab.end_id]
             previous_id = vocab.start_id
 
-            while len(current_caption) < 99:
+            for i in range(99):
 
                 p, w = sess.run([pointer_logits, word_logits], feed_dict={
                     batch_of_images: [single_image],
@@ -55,7 +55,11 @@ if __name__ == "__main__":
                     break
                 current_caption.insert(index + 1, previous_id)
 
-            print(vocab.id_to_word(current_caption))
+                print("Decoding step {0:03d} caption: {1}".format(
+                    i, " ".join(vocab.id_to_word(current_caption))))
+
+            print("Final caption: {0} ".format(
+                " ".join(vocab.id_to_word(current_caption))))
         
 
 

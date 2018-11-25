@@ -23,7 +23,8 @@ class BestFirstModule(tf.layers.Layer):
 
         self.word_embeddings = tf.get_variable(
             "word_embeddings", initializer=word_embeddings, dtype=tf.float32)
-        self.encoder = tf.contrib.rnn.LSTMCell(word_embeddings.shape[1])
+        self.fw_cell = tf.contrib.rnn.LSTMCell(word_embeddings.shape[1])
+        self.bw_cell = tf.contrib.rnn.LSTMCell(word_embeddings.shape[1])
         self.pointer_layer = tf.layers.Dense(1)
         self.logits_layer = tf.layers.Dense(word_embeddings.shape[0])
 
@@ -31,8 +32,8 @@ class BestFirstModule(tf.layers.Layer):
     @property
     def trainable_variables(self):
 
-        return ([self.word_embeddings] + self.encoder.trainable_variables + 
-            self.pointer_layer.trainable_variables + 
+        return ([self.word_embeddings] + self.fw_cell.trainable_variables + 
+            self.bw_cell.trainable_variables + self.pointer_layer.trainable_variables + 
             self.logits_layer.trainable_variables)
 
 
@@ -45,7 +46,7 @@ class BestFirstModule(tf.layers.Layer):
     @property
     def variables(self):
 
-        return ([self.word_embeddings] + self.encoder.variables + 
+        return ([self.word_embeddings] + self.fw_cell.variables + self.bw_cell.variables +
             self.pointer_layer.variables + self.logits_layer.variables)
 
 
@@ -61,11 +62,12 @@ class BestFirstModule(tf.layers.Layer):
         if indicators is None:
             indicators = tf.ones(tf.shape(caption_ids))
         
-        # The RNN sequence encoder 
+        # The Bidirectional RNN sequence encoder 
         caption_embeddings = tf.nn.embedding_lookup(self.word_embeddings, caption_ids)
         lengths = tf.cast(tf.reduce_sum(indicators, axis=1), tf.int32)
-        outputs, _ = tf.nn.dynamic_rnn(self.encoder, caption_embeddings, 
-            sequence_length=lengths, dtype=tf.float32)
+        outputs_tuple, _ = tf.nn.bidirectional_dynamic_rnn(self.fw_cell, self.bw_cell, 
+            caption_embeddings, sequence_length=lengths, dtype=tf.float32)
+        outputs = tf.concat(outputs_tuple, 2)
         slots = tf.concat([ outputs[:, :-1, :], outputs[:, 1:, :] ], 2)
         
         # The Pointer Network mechanism
